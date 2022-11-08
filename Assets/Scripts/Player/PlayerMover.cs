@@ -6,43 +6,44 @@ using UnityEngine.Events;
 
 public class PlayerMover : MonoBehaviour
 {
-    [SerializeField] private float _rotationSpeed;
-    [SerializeField] private float _movementSpeed;
-    [SerializeField] private GameObject _mouth;
-    [SerializeField] private GameObject _fractures;
-
-    [SerializeField] private GameObject _modelObject;
-    private List<GameObject> _skins = new List<GameObject>();
-
-    [SerializeField] private GameObject _restartButton;
-    [SerializeField] private GameObject _backButton;
-    [SerializeField] private LevelGenerator _levelGenerator;
-
-    [SerializeField] private SoundPlayer _soundPlayer;
     public UnityEvent onClickEvent;
 
+    [SerializeField] private GameObject _mouth;
+    [SerializeField] private GameObject _fractures;
+    [SerializeField] private GameObject _modelObject;
+    [SerializeField] private GameObject _restartButton;
+    [SerializeField] private GameObject _backButton;
 
-    private Queue<MoveTrigger> _moveTriggers = new Queue<MoveTrigger>();
-    private MoveTrigger _currentTrigger;
-    private float _lastTriggerMagnitude;
-    private float _currentTriggerMagnitude;
+    [SerializeField] private LevelGenerator _levelGenerator;
+    [SerializeField] private SoundPlayer _soundPlayer;
 
-    private Quaternion _targetRotation;
-
-    private float _movementBoost;
-
+    [SerializeField] private float _rotationSpeed;
+    [SerializeField] private float _movementSpeed;
     [SerializeField] private float _scaleSpeed;
     [SerializeField] private float _maxScaleY;
-    private float _startScaleY;
-    private bool _isScaled;
 
+    private List<GameObject> _skins = new List<GameObject>();
+    private Queue<MoveTrigger> _moveTriggers = new Queue<MoveTrigger>();
+    private MoveTrigger _currentTrigger;
+    private Rigidbody _rigidbody;
+    private Quaternion _targetRotation;
+
+    private float _lastTriggerMagnitude;
+    private float _currentTriggerMagnitude;
+    private float _movementBoost;
+    private float _startScaleY;
+    private float _minHeight = 0.55f;
+
+    private bool _isScaled;
     private bool _isDied = false;
 
     private void Start()
     {
-
         _soundPlayer.SetPlayerHandler(ref onClickEvent);
+
         _targetRotation = transform.rotation;
+        _rigidbody = GetComponent<Rigidbody>();
+
         _movementBoost = PlayerPrefs.GetInt("CurrentLevel");
 
         for (int i = 1; i <= 9; i++)
@@ -78,53 +79,7 @@ public class PlayerMover : MonoBehaviour
     {
         if (!_isDied)
         {
-            if (transform.position.y < 0.55f)
-            {
-                _isDied = true;
-                PlayerPrefs.SetInt("CurrentScore", 0);
-            }
-
-            Vector3 direction = (_mouth.transform.position - transform.position) * Sigmoid(_movementBoost) * _movementSpeed;
-            direction.y = GetComponent<Rigidbody>().velocity.y;
-
-            GetComponent<Rigidbody>().velocity = direction;
-
-            if (!_isScaled)
-            {
-                if (_modelObject.transform.localScale.y < _maxScaleY)
-                    _modelObject.transform.localScale += new Vector3(0, _scaleSpeed * Time.deltaTime, 0);
-                else
-                    _isScaled = true;
-            } 
-            else
-            {
-                if (_modelObject.transform.localScale.y > _startScaleY)
-                    _modelObject.transform.localScale -= new Vector3(0, _scaleSpeed*Time.deltaTime, 0);
-                else
-                    _isScaled = false;
-            }
-        } 
-        else
-        {
-            if (_fractures != null)
-            {
-                _fractures.SetActive(true);
-                _modelObject.SetActive(false);
-
-                for (int i = 0; i < _fractures.transform.childCount; i++)
-                {
-                    var child = _fractures.transform.GetChild(i);
-                    child.GetComponent<Rigidbody>().velocity = child.transform.localPosition * _movementSpeed;
-                }
-                _fractures.transform.SetParent(transform.parent);
-                _fractures = null;
-            }
-
-            GetComponent<Rigidbody>().isKinematic = true;
-
-            _restartButton.SetActive(true);
-            _backButton.SetActive(true);
-            this.enabled = false;
+            MoveForward();
         }
     }
 
@@ -141,22 +96,76 @@ public class PlayerMover : MonoBehaviour
             onClickEvent.Invoke();
         }
 
-        _currentTriggerMagnitude = (transform.position - _currentTrigger.transform.position).magnitude;
-        if ((_currentTriggerMagnitude) > _lastTriggerMagnitude)
-        {
-            _currentTrigger.Die();
+        CheckTriggerDestination();
+    }
 
-            if (_moveTriggers.Count > 0)
-            {
-                _currentTrigger = _moveTriggers.Dequeue();
-                _lastTriggerMagnitude = (transform.position - _currentTrigger.transform.position).magnitude; ;
-                _currentTriggerMagnitude = _lastTriggerMagnitude;
-            }
+    public void ChangeTargetRotation(int direction)
+    {
+        Vector3 directRotation = new Vector3(0, direction * 90, 0);
+        _targetRotation = Quaternion.Euler(_targetRotation.eulerAngles + directRotation);
+    }
+
+    public void ChangeVelocity(Vector3 velocity)
+    {
+        _rigidbody.velocity = velocity;
+    }
+
+    private float Sigmoid(float value)
+    {
+        return (1f / (1f + (float)Mathf.Exp(-value))) / 1000f + 1f;
+    }
+
+    private void MoveForward()
+    {
+        if (transform.position.y < _minHeight)
+        {
+            _isDied = true;
+            PlayerPrefs.SetInt("CurrentScore", 0);
+            Die();
+        }
+
+        Vector3 direction = (_mouth.transform.position - transform.position) * Sigmoid(_movementBoost) * _movementSpeed;
+        direction.y = _rigidbody.velocity.y;
+
+        _rigidbody.velocity = direction;
+
+        if (!_isScaled)
+        {
+            if (_modelObject.transform.localScale.y < _maxScaleY)
+                _modelObject.transform.localScale += new Vector3(0, _scaleSpeed * Time.deltaTime, 0);
+            else
+                _isScaled = true;
         }
         else
         {
-            _lastTriggerMagnitude = _currentTriggerMagnitude;
+            if (_modelObject.transform.localScale.y > _startScaleY)
+                _modelObject.transform.localScale -= new Vector3(0, _scaleSpeed * Time.deltaTime, 0);
+            else
+                _isScaled = false;
         }
+    }
+
+    private void Die()
+    {
+        if (_fractures != null)
+        {
+            _fractures.SetActive(true);
+            _modelObject.SetActive(false);
+
+            for (int i = 0; i < _fractures.transform.childCount; i++)
+            {
+                var child = _fractures.transform.GetChild(i);
+                child.GetComponent<Rigidbody>().velocity = child.transform.localPosition * _movementSpeed;
+            }
+            _fractures.transform.SetParent(transform.parent);
+            _fractures = null;
+        }
+
+        _rigidbody.isKinematic = true;
+
+        _restartButton.SetActive(true);
+        _backButton.SetActive(true);
+        this.enabled = false;
     }
 
     private void ActivateTrigger()
@@ -166,15 +175,6 @@ public class PlayerMover : MonoBehaviour
         {
             _currentTrigger = _moveTriggers.Dequeue();
             _lastTriggerMagnitude = (transform.position - _currentTrigger.transform.position).magnitude;
-        }
-    }
-
-
-    private void OnTriggerEnter(Collider other)
-    {
-        if(other.GetComponent<FinishTrigger>() != null)
-        {
-            SetTriggers();
         }
     }
 
@@ -190,18 +190,26 @@ public class PlayerMover : MonoBehaviour
         _lastTriggerMagnitude = (transform.position - _currentTrigger.transform.position).magnitude;
         _movementBoost = PlayerPrefs.GetInt("CurrentLevel");
     }
-    public void ChangeTargetRotation(int direction)
+
+    private void CheckTriggerDestination()
     {
-        Vector3 rotation = new Vector3(0, direction * 90, 0);
-        _targetRotation = Quaternion.Euler(_targetRotation.eulerAngles + rotation);
+        _currentTriggerMagnitude = (transform.position - _currentTrigger.transform.position).magnitude;
+        if (_currentTriggerMagnitude > _lastTriggerMagnitude)
+        {
+            _currentTrigger.Die();
+
+            if (_moveTriggers.Count > 0)
+                _currentTrigger = _moveTriggers.Dequeue();
+        }
+
+        _lastTriggerMagnitude = _currentTriggerMagnitude;
     }
 
-    public void ChangeVelocity(Vector3 velocity)
+    private void OnTriggerEnter(Collider other)
     {
-        GetComponent<Rigidbody>().velocity = velocity;
-    }
-    public static float Sigmoid(float value)
-    {
-        return (1.0f / (1.0f + (float)Mathf.Exp(-value)))/1000f+1f;
+        if (other.GetComponent<FinishTrigger>() != null)
+        {
+            SetTriggers();
+        }
     }
 }

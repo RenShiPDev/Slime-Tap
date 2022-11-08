@@ -4,9 +4,10 @@ using UnityEngine;
 
 public class JumpEvent : MonoBehaviour
 {
-    [SerializeField] private float _dyingSpeed;
-    [SerializeField] private Vector3 _jumpForce;
     [SerializeField] private MoveTrigger _moveTrigger;
+    [SerializeField] private Vector3 _jumpForce;
+
+    [SerializeField] private float _dyingSpeed;
 
     private PlayerMover _playerMover;
 
@@ -25,13 +26,9 @@ public class JumpEvent : MonoBehaviour
         if (_isDied)
         {
             if (transform.localScale.x > 0)
-            {
                 transform.localScale -= new Vector3(1, 0, 0.5f) * _dyingSpeed * Time.deltaTime;
-            }
             else
-            {
                 transform.localScale = Vector3.zero;
-            }
         }
     }
 

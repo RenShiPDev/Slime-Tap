@@ -12,11 +12,14 @@ public class TurnEvent : MonoBehaviour
 
     private bool _isDied = false;
 
-    private void Start()
+    private void OnEnable()
     {
         _moveTrigger._actionEvent.AddListener(Turn);
         _moveTrigger._dieEvent.AddListener(Die);
+    }
 
+    private void Start()
+    {
         _playerMover = FindObjectOfType<PlayerMover>();
     }
 
@@ -24,22 +27,14 @@ public class TurnEvent : MonoBehaviour
     {
         if (_isDied)
         {
-            if(transform.localScale.x > 0)
-            {
-                transform.localScale -= new Vector3(1, 0, 1) * _dyingSpeed * Time.deltaTime;
-            }
-            else
-            {
-                transform.localScale = Vector3.zero;
-            }
+            Vector3 deltaScale = new Vector3(1, 0, 1) * _dyingSpeed * Time.deltaTime;
+            transform.localScale -= transform.localScale.x > 0 ? deltaScale : transform.localScale;
         }
     }
 
     private void Turn()
     {
         _playerMover.ChangeTargetRotation(_direction);
-
-
         Die();
     }
 

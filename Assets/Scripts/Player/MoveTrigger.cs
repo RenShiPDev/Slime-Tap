@@ -9,10 +9,12 @@ public class MoveTrigger : MonoBehaviour
     public UnityEvent _dieEvent;
 
     private UIStatsUpdater _uIStatsUpdater;
+    private MoveTrigger _moveTrigger;
 
     private void Start()
     {
         _uIStatsUpdater = FindObjectOfType<UIStatsUpdater>();
+        _moveTrigger = GetComponent<MoveTrigger>();
     }
 
     private void Update()
@@ -20,7 +22,7 @@ public class MoveTrigger : MonoBehaviour
         if (transform.localScale.x <= 0)
         {
             gameObject.SetActive(false);
-            GetComponent<MoveTrigger>().enabled = false;
+            _moveTrigger.enabled = false;
         }
     }
 
